@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { orderService } from '@/lib/services/orderService';
 import { productService } from '@/lib/services/productService';
 import Modal from '@/components/ui/Modal';
@@ -20,7 +20,7 @@ export default function OrdersPage() {
   const [orderSource, setOrderSource] = useState<OrderSource>('dine-in');
   const [items, setItems] = useState([{ product_id: 0, quantity: 1 }]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const [orders, prods] = await Promise.all([
       orderService.getAll(page),
@@ -29,9 +29,9 @@ export default function OrdersPage() {
     setData(orders);
     setProducts(prods);
     setLoading(false);
-  };
+  }, [page]);
 
-  useEffect(() => { load(); }, [page]);
+  useEffect(() => { load(); }, [load]);
 
   const openModal = () => {
     setOrderSource('dine-in');

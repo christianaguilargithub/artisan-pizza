@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { productService } from '@/lib/services/productService';
 import { categoryService } from '@/lib/services/categoryService';
 import Modal from '@/components/ui/Modal';
@@ -11,9 +12,11 @@ interface ProductForm {
   category_id: number;
   name: string;
   price: string;
+  image: File | null;
+  previewUrl: string | null;
 }
 
-const emptyForm: ProductForm = { category_id: 0, name: '', price: '' };
+const emptyForm: ProductForm = { category_id: 0, name: '', price: '', image: null, previewUrl: null };
 
 export default function ProductsPage() {
   const [data, setData] = useState<PaginatedResponse<Product> | null>(null);
@@ -24,8 +27,9 @@ export default function ProductsPage() {
   const [editTarget, setEditTarget] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const [products, cats] = await Promise.all([
       productService.getAll(page),
@@ -34,9 +38,9 @@ export default function ProductsPage() {
     setData(products);
     setCategories(cats);
     setLoading(false);
-  };
+  }, [page]);
 
-  useEffect(() => { load(); }, [page]);
+  useEffect(() => { load(); }, [load]);
 
   const openAdd = () => {
     setEditTarget(null);
@@ -46,14 +50,28 @@ export default function ProductsPage() {
 
   const openEdit = (p: Product) => {
     setEditTarget(p);
-    setForm({ category_id: p.category_id, name: p.name, price: String(p.price) });
+    setForm({
+      category_id: p.category_id,
+      name: p.name,
+      price: String(p.price),
+      image: null,
+      previewUrl: p.image_url ?? null,
+    });
     setShowModal(true);
   };
 
   const closeModal = () => {
+    if (form.previewUrl && form.image) URL.revokeObjectURL(form.previewUrl);
     setShowModal(false);
     setEditTarget(null);
     setForm(emptyForm);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return;
+    if (form.previewUrl && form.image) URL.revokeObjectURL(form.previewUrl);
+    setForm((f) => ({ ...f, image: file, previewUrl: URL.createObjectURL(file) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,6 +81,7 @@ export default function ProductsPage() {
       category_id: Number(form.category_id),
       name: form.name,
       price: parseFloat(form.price),
+      image: form.image,
     };
     if (editTarget) {
       await productService.update(editTarget.id, payload);
@@ -100,6 +119,7 @@ export default function ProductsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
                 <tr>
+                  <th className="px-4 py-3 text-left w-16">Image</th>
                   <th className="px-4 py-3 text-left">Name</th>
                   <th className="px-4 py-3 text-left">Category</th>
                   <th className="px-4 py-3 text-left">Price</th>
@@ -109,13 +129,28 @@ export default function ProductsPage() {
               <tbody className="divide-y">
                 {data?.data.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-sm">
+                    <td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">
                       No products yet.
                     </td>
                   </tr>
                 )}
                 {data?.data.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      {p.image_url ? (
+                        <Image
+                          src={p.image_url}
+                          alt={p.name}
+                          width={48}
+                          height={48}
+                          className="w-12 h-12 object-cover rounded-lg border"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg border bg-gray-100 flex items-center justify-center text-gray-300 text-xl">
+                          🍕
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-medium">{p.name}</td>
                     <td className="px-4 py-3 text-gray-500">{p.category?.name}</td>
                     <td className="px-4 py-3">₱{Number(p.price).toFixed(2)}</td>
@@ -133,10 +168,7 @@ export default function ProductsPage() {
       )}
 
       {showModal && (
-        <Modal
-          title={editTarget ? 'Edit Product' : 'Add Product'}
-          onClose={closeModal}
-        >
+        <Modal title={editTarget ? 'Edit Product' : 'Add Product'} onClose={closeModal}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
@@ -152,6 +184,7 @@ export default function ProductsPage() {
                 ))}
               </select>
             </div>
+
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Product Name</label>
               <input
@@ -163,6 +196,7 @@ export default function ProductsPage() {
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
+
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Price (₱)</label>
               <input
@@ -176,6 +210,53 @@ export default function ProductsPage() {
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             </div>
+
+            {/* Image upload */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Product Image <span className="text-gray-400">(optional, max 2MB)</span>
+              </label>
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed rounded-xl p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-red-400 transition"
+              >
+                {form.previewUrl ? (
+                  <Image
+                    src={form.previewUrl}
+                    alt="Preview"
+                    width={160}
+                    height={160}
+                    className="w-40 h-40 object-cover rounded-lg"
+                  />
+                ) : (
+                  <>
+                    <span className="text-3xl">📷</span>
+                    <span className="text-xs text-gray-400">Click to upload image</span>
+                  </>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageChange}
+              />
+              {form.previewUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (form.image) URL.revokeObjectURL(form.previewUrl!);
+                    setForm((f) => ({ ...f, image: null, previewUrl: editTarget?.image_url ?? null }));
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="mt-1 text-xs text-red-500 hover:underline"
+                >
+                  {form.image ? 'Remove new image' : 'Keep existing image'}
+                </button>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={closeModal} className="border px-4 py-1.5 rounded text-sm hover:bg-gray-50">
                 Cancel

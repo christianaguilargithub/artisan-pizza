@@ -43,6 +43,8 @@ export interface Product {
   category_id: number;
   name: string;
   price: number;
+  image_path?: string | null;
+  image_url?: string | null;
   author: number;
   category?: Category;
   inventory_items?: (InventoryItem & { pivot: ProductInventoryPivot })[];

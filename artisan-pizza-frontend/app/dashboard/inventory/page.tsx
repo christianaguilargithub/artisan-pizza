@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { inventoryService } from '@/lib/services/inventoryService';
 import Modal from '@/components/ui/Modal';
 import Pagination from '@/components/ui/Pagination';
@@ -23,13 +23,13 @@ export default function InventoryPage() {
   const [form, setForm] = useState<InventoryForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setData(await inventoryService.getAll(page));
     setLoading(false);
-  };
+  }, [page]);
 
-  useEffect(() => { load(); }, [page]);
+  useEffect(() => { load(); }, [load]);
 
   const openAdd = () => {
     setEditTarget(null);

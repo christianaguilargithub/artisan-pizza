@@ -9,11 +9,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
-    protected $fillable = ['category_id', 'name', 'price', 'author'];
+    protected $fillable = ['category_id', 'name', 'price', 'image_path', 'author'];
 
     protected $casts = [
         'price' => 'decimal:2',
     ];
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image_path
+            ? rtrim(config('app.url'), '/') . '/storage/' . $this->image_path
+            : null;
+    }
 
     public function category(): BelongsTo
     {

@@ -16,16 +16,33 @@ export const productService = {
     category_id: number;
     name: string;
     price: number;
+    image?: File | null;
   }): Promise<Product> {
-    const { data } = await api.post<Product>('/products', payload);
+    const form = new FormData();
+    form.append('category_id', String(payload.category_id));
+    form.append('name', payload.name);
+    form.append('price', String(payload.price));
+    if (payload.image) form.append('image', payload.image);
+    const { data } = await api.post<Product>('/products', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return data;
   },
 
   async update(
     id: number,
-    payload: Partial<{ category_id: number; name: string; price: number }>
+    payload: Partial<{ category_id: number; name: string; price: number; image: File | null }>
   ): Promise<Product> {
-    const { data } = await api.put<Product>(`/products/${id}`, payload);
+    const form = new FormData();
+    if (payload.category_id !== undefined) form.append('category_id', String(payload.category_id));
+    if (payload.name !== undefined) form.append('name', payload.name);
+    if (payload.price !== undefined) form.append('price', String(payload.price));
+    if (payload.image) form.append('image', payload.image);
+    // Laravel needs this to treat POST as PUT for multipart
+    form.append('_method', 'PUT');
+    const { data } = await api.post<Product>(`/products/${id}`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return data;
   },
 

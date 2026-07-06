@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -22,8 +23,14 @@ class ProductController extends Controller
             'category_id' => 'required|exists:categories,id',
             'name'        => 'required|string|max:255',
             'price'       => 'required|numeric|min:0',
+            'image'       => 'nullable|image|max:2048',
         ]);
 
+        if ($request->hasFile('image')) {
+            $data['image_path'] = $request->file('image')->store('products', 'public');
+        }
+
+        unset($data['image']);
         $data['author'] = $request->user()->id;
 
         $product = Product::create($data);
@@ -42,8 +49,17 @@ class ProductController extends Controller
             'category_id' => 'sometimes|exists:categories,id',
             'name'        => 'sometimes|string|max:255',
             'price'       => 'sometimes|numeric|min:0',
+            'image'       => 'nullable|image|max:2048',
         ]);
 
+        if ($request->hasFile('image')) {
+            if ($product->image_path) {
+                Storage::disk('public')->delete($product->image_path);
+            }
+            $data['image_path'] = $request->file('image')->store('products', 'public');
+        }
+
+        unset($data['image']);
         $product->update($data);
 
         return response()->json($product->load('category'));
@@ -51,6 +67,10 @@ class ProductController extends Controller
 
     public function destroy(Product $product): JsonResponse
     {
+        if ($product->image_path) {
+            Storage::disk('public')->delete($product->image_path);
+        }
+
         $product->delete();
 
         return response()->json(['message' => 'Product deleted.']);

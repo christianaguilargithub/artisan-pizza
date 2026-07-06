@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { paymentService } from '@/lib/services/paymentService';
 import { orderService } from '@/lib/services/orderService';
 import Modal from '@/components/ui/Modal';
@@ -31,7 +31,7 @@ export default function PaymentsPage() {
   const [form, setForm] = useState<PaymentForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const [payments, queue] = await Promise.all([
       paymentService.getAll(page),
@@ -40,9 +40,9 @@ export default function PaymentsPage() {
     setData(payments);
     setUnpaidOrders(queue.filter((o) => o.status !== 'completed' && o.status !== 'cancelled'));
     setLoading(false);
-  };
+  }, [page]);
 
-  useEffect(() => { load(); }, [page]);
+  useEffect(() => { load(); }, [load]);
 
   const openModal = () => {
     setForm(emptyForm);
