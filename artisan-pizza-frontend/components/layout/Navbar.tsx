@@ -13,22 +13,56 @@ export default function Navbar() {
     router.push('/login');
   };
 
+  const navigation = {
+    admin: [
+      { href: '/dashboard/orders', label: 'Orders' },
+      { href: '/dashboard/queue', label: 'Queue' },
+      { href: '/dashboard/products', label: 'Products' },
+      { href: '/dashboard/inventory', label: 'Inventory' },
+      { href: '/dashboard/categories', label: 'Categories' },
+      { href: '/dashboard/payments', label: 'Payments' },
+      { href: '/dashboard/users', label: 'Users' },
+    ],
+    cashier: [
+      { href: '/dashboard/orders', label: 'Orders' },
+      // { href: '/dashboard/queue', label: 'Queue' },
+      // { href: '/dashboard/payments', label: 'Payments' },
+    ],
+    kitchen: [
+      { href: '/dashboard/orders', label: 'Orders' },
+      { href: '/dashboard/queue', label: 'Queue' },
+    ],
+    customer: [],
+  };
+
+  const roleName = user?.role?.name?.toLowerCase() ?? 'customer';
+  const links =
+    navigation[roleName as keyof typeof navigation] ?? [];
+
   return (
     <nav className="bg-red-700 text-white px-6 py-3 flex items-center justify-between shadow-md">
-      <Link href="/dashboard" className="text-xl font-bold tracking-wide">
+      <Link
+        href="/dashboard"
+        className="text-xl font-bold tracking-wide"
+      >
         🍕 Artisan Pizza
       </Link>
+
       <div className="flex items-center gap-6 text-sm font-medium">
-        <Link href="/dashboard/orders" className="hover:underline">Orders</Link>
-        <Link href="/dashboard/queue" className="hover:underline">Queue</Link>
-        <Link href="/dashboard/products" className="hover:underline">Products</Link>
-        <Link href="/dashboard/inventory" className="hover:underline">Inventory</Link>
-        <Link href="/dashboard/categories" className="hover:underline">Categories</Link>
-        <Link href="/dashboard/payments" className="hover:underline">Payments</Link>
+        {links.map(({ href, label }) => (
+          <Link key={href} href={href} className="hover:underline">
+            {label}
+          </Link>
+        ))}
+
         {user && (
           <>
             <span className="opacity-75">Hi, {user.name}</span>
-            <button onClick={handleLogout} className="bg-white text-red-700 px-3 py-1 rounded font-semibold hover:bg-red-50">
+
+            <button
+              onClick={handleLogout}
+              className="bg-white text-red-700 px-3 py-1 rounded font-semibold hover:bg-red-50"
+            >
               Logout
             </button>
           </>
