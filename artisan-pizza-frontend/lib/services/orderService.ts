@@ -1,10 +1,5 @@
 import api from '../api';
-import type { Order, OrderStatus, PaginatedResponse } from '@/types';
-
-export interface CreateOrderPayload {
-  order_source: 'dine-in' | 'online' | 'walk-in';
-  items: { product_id: number; quantity: number }[];
-}
+import type { CreateOrderPayload, Order, OrderStatus, PaginatedResponse } from '@/types';
 
 export const orderService = {
   async getAll(page = 1): Promise<PaginatedResponse<Order>> {
@@ -29,6 +24,11 @@ export const orderService = {
 
   async updateStatus(id: number, status: OrderStatus): Promise<Order> {
     const { data } = await api.patch<Order>(`/orders/${id}/status`, { status });
+    return data;
+  },
+
+  async refund(id: number): Promise<Order> {
+    const { data } = await api.post<Order>(`/orders/${id}/refund`);
     return data;
   },
 

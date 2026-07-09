@@ -41,12 +41,43 @@ class PaymentController extends Controller
 
         $order->update(['status' => 'completed']);
 
-        return response()->json($payment->load('order'), 201);
+        return response()->json($payment->load('order.orderItems.product', 'order.discount'), 201);
     }
 
     public function show(Payment $payment): JsonResponse
     {
-        return response()->json($payment->load('order.orderItems.product'));
+        return response()->json($payment->load('order.orderItems.product', 'order.discount'));
+    }
+
+    public function receipt(Payment $payment): JsonResponse
+    {
+        $payment->load('order.orderItems.product', 'order.user', 'order.discount');
+        $order = $payment->order;
+
+        $items = $order->orderItems->map(fn($item) => [
+            'name'       => $item->product?->name ?? "Item #{$item->product_id}",
+            'quantity'   => $item->quantity,
+            'unit_price' => (float) $item->unit_price,
+            'subtotal'   => (float) $item->unit_price * $item->quantity,
+        ]);
+
+        return response()->json([
+            'receipt_number'   => 'RCP-' . str_pad($payment->id, 6, '0', STR_PAD_LEFT),
+            'date'             => $payment->created_at->format('M d, Y h:i A'),
+            'cashier'          => $order->user?->name ?? 'N/A',
+            'queue_number'     => $order->queue_number,
+            'order_source'     => $order->order_source,
+            'items'            => $items,
+            'subtotal'         => (float) ($order->total_amount + $order->discount_amount - $order->tax_amount),
+            'discount_code'    => $order->discount?->promo_code,
+            'discount_amount'  => (float) $order->discount_amount,
+            'tax_amount'       => (float) $order->tax_amount,
+            'total'            => (float) $order->total_amount,
+            'payment_method'   => $payment->payment_method,
+            'amount_tendered'  => (float) $payment->amount_tendered,
+            'change_given'     => (float) $payment->change_given,
+            'qr_reference'     => $payment->qr_reference,
+        ]);
     }
 
     public function update(Request $request, Payment $payment): JsonResponse
@@ -66,7 +97,6 @@ class PaymentController extends Controller
     public function destroy(Payment $payment): JsonResponse
     {
         $payment->delete();
-
         return response()->json(['message' => 'Payment deleted.']);
     }
 }
