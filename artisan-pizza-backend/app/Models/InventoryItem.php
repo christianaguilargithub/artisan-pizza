@@ -7,11 +7,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class InventoryItem extends Model
 {
-    protected $fillable = ['name', 'unit', 'quantity', 'author'];
+    protected $fillable = ['name', 'unit', 'quantity', 'low_stock_threshold', 'author'];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
+        'quantity'            => 'decimal:2',
+        'low_stock_threshold' => 'decimal:2',
     ];
+
+    protected $appends = ['is_low_stock'];
+
+    public function getIsLowStockAttribute(): bool
+    {
+        return $this->low_stock_threshold > 0 && $this->quantity <= $this->low_stock_threshold;
+    }
 
     public function products(): BelongsToMany
     {
