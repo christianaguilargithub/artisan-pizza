@@ -23,7 +23,7 @@ class ProductController extends Controller
             'category_id' => 'required|exists:categories,id',
             'name'        => 'required|string|max:255',
             'price'       => 'required|numeric|min:0',
-            'image'       => 'nullable|image|max:2048',
+            'image'       => 'nullable|image|max:10240',
         ]);
 
         if ($request->hasFile('image')) {
