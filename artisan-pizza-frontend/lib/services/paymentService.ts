@@ -1,5 +1,5 @@
 import api from '../api';
-import type { CreatePaymentPayload, PaginatedResponse, Payment } from '@/types';
+import type { CreatePaymentPayload, PaginatedResponse, Payment, ReceiptData } from '@/types';
 
 export const paymentService = {
   async getAll(page = 1): Promise<PaginatedResponse<Payment>> {
@@ -14,6 +14,11 @@ export const paymentService = {
 
   async create(payload: CreatePaymentPayload): Promise<Payment> {
     const { data } = await api.post<Payment>('/payments', payload);
+    return data;
+  },
+
+  async getReceipt(id: number): Promise<ReceiptData> {
+    const { data } = await api.get<ReceiptData>(`/payments/${id}/receipt`);
     return data;
   },
 
