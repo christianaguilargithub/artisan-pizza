@@ -103,11 +103,11 @@ export default function CashierOrderPage() {
     return sum + (p ? Number(p.price) * item.quantity : 0);
   }, 0);
 
-  const discountAmount = appliedDiscount ? appliedDiscount.computeDiscount?.(subtotal) ?? (
-    appliedDiscount.type === 'percent'
+  const discountAmount = appliedDiscount
+    ? appliedDiscount.type === 'percent'
       ? subtotal * (appliedDiscount.value / 100)
       : Math.min(appliedDiscount.value, subtotal)
-  ) : 0;
+    : 0;
 
   const cartTotal = subtotal - discountAmount;
 
@@ -126,6 +126,8 @@ export default function CashierOrderPage() {
     }
   };
 
+  const [pendingOrderTotal, setPendingOrderTotal] = useState(0);
+
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) return;
     setSubmitting(true);
@@ -136,9 +138,11 @@ export default function CashierOrderPage() {
         discount_code: appliedDiscount ? discountCode : undefined,
         notes: notes || undefined,
       });
+      // Capture total BEFORE clearing cart
+      setPendingOrderTotal(Number(order.total_amount));
       setPendingOrderId(order.id);
-      setShowPayment(true);
       clearCart();
+      setShowPayment(true);
       await load();
     } finally {
       setSubmitting(false);
@@ -152,7 +156,7 @@ export default function CashierOrderPage() {
       const payment = await paymentService.create({
         order_id: pendingOrderId,
         payment_method: paymentMethod,
-        amount_tendered: parseFloat(amountTendered) || cartTotal,
+        amount_tendered: parseFloat(amountTendered) || pendingOrderTotal,
         qr_reference: qrReference || undefined,
       });
       const receiptData = await paymentService.getReceipt(payment.id);
@@ -168,7 +172,7 @@ export default function CashierOrderPage() {
   };
 
   const change = amountTendered && pendingOrderId
-    ? Math.max(0, parseFloat(amountTendered) - cartTotal)
+    ? Math.max(0, parseFloat(amountTendered) - pendingOrderTotal)
     : null;
 
   const handleStatus = async (id: number, status: OrderStatus) => {
@@ -414,7 +418,7 @@ export default function CashierOrderPage() {
             <div className="px-6 py-5 space-y-4">
               <div className="bg-red-50 rounded-xl px-4 py-3 flex justify-between items-center">
                 <span className="text-gray-600 text-sm">Amount Due</span>
-                <span className="font-bold text-xl text-red-600">₱{cartTotal.toFixed(2)}</span>
+                <span className="font-bold text-xl text-red-600">₱{pendingOrderTotal.toFixed(2)}</span>
               </div>
 
               <div>
@@ -440,10 +444,10 @@ export default function CashierOrderPage() {
                   <input
                     type="number"
                     step="0.01"
-                    min={cartTotal}
+                    min={pendingOrderTotal}
                     value={amountTendered}
                     onChange={(e) => setAmountTendered(e.target.value)}
-                    placeholder={cartTotal.toFixed(2)}
+                    placeholder={pendingOrderTotal.toFixed(2)}
                     className="w-full border rounded-xl px-3 py-2.5 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-red-400"
                     autoFocus
                   />
@@ -470,7 +474,7 @@ export default function CashierOrderPage() {
 
               <button
                 onClick={handleProcessPayment}
-                disabled={submitting || (paymentMethod === 'cash' && (!amountTendered || parseFloat(amountTendered) < cartTotal))}
+                disabled={submitting || (paymentMethod === 'cash' && (!amountTendered || parseFloat(amountTendered) < pendingOrderTotal))}
                 className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 disabled:opacity-50 transition"
               >
                 {submitting ? 'Processing…' : '✓ Confirm Payment'}
