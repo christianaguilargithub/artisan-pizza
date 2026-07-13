@@ -6,7 +6,8 @@ import { orderService } from '@/lib/services/orderService';
 import Modal from '@/components/ui/Modal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Pagination from '@/components/ui/Pagination';
-import type { Order, PaginatedResponse, Payment, PaymentMethod } from '@/types';
+import ReceiptModal from '@/components/ui/ReceiptModal';
+import type { Order, PaginatedResponse, Payment, PaymentMethod, ReceiptData } from '@/types';
 
 interface PaymentForm {
   order_id: string;
@@ -15,12 +16,7 @@ interface PaymentForm {
   qr_reference: string;
 }
 
-const emptyForm: PaymentForm = {
-  order_id: '',
-  payment_method: 'cash',
-  amount_tendered: '',
-  qr_reference: '',
-};
+const emptyForm: PaymentForm = { order_id: '', payment_method: 'cash', amount_tendered: '', qr_reference: '' };
 
 export default function PaymentsPage() {
   const [data, setData] = useState<PaginatedResponse<Payment> | null>(null);
@@ -30,6 +26,7 @@ export default function PaymentsPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<PaymentForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,55 +41,52 @@ export default function PaymentsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const openModal = () => {
-    setForm(emptyForm);
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setForm(emptyForm);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    await paymentService.create({
+    const payment = await paymentService.create({
       order_id: Number(form.order_id),
       payment_method: form.payment_method,
       amount_tendered: parseFloat(form.amount_tendered),
       qr_reference: form.qr_reference || undefined,
     });
-    closeModal();
+    setShowModal(false);
+    setForm(emptyForm);
     await load();
+    const receiptData = await paymentService.getReceipt(payment.id);
+    setReceipt(receiptData);
     setSubmitting(false);
   };
 
+  const handleViewReceipt = async (paymentId: number) => {
+    const receiptData = await paymentService.getReceipt(paymentId);
+    setReceipt(receiptData);
+  };
+
   const selectedOrder = unpaidOrders.find((o) => o.id === Number(form.order_id));
-  const change =
-    selectedOrder && form.amount_tendered
-      ? Math.max(0, parseFloat(form.amount_tendered) - Number(selectedOrder.total_amount))
-      : null;
+  const change = selectedOrder && form.amount_tendered
+    ? Math.max(0, parseFloat(form.amount_tendered) - Number(selectedOrder.total_amount))
+    : null;
 
   return (
-    <div>
+    <div className="max-w-6xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-800">Payments</h1>
-        <button
-          onClick={openModal}
-          className="bg-red-700 text-white px-4 py-1.5 rounded text-sm font-semibold hover:bg-red-800"
-        >
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
+          <p className="text-sm text-gray-500 mt-1">Payment records and receipts</p>
+        </div>
+        <button onClick={() => { setForm(emptyForm); setShowModal(true); }} className="bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-red-700">
           + Process Payment
         </button>
       </div>
 
       {loading ? (
-        <p className="text-gray-500 text-sm">Loading…</p>
+        <p className="text-gray-400 text-sm">Loading…</p>
       ) : (
         <>
-          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
+              <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
                 <tr>
                   <th className="px-4 py-3 text-left">Order #</th>
                   <th className="px-4 py-3 text-left">Method</th>
@@ -101,28 +95,26 @@ export default function PaymentsPage() {
                   <th className="px-4 py-3 text-left">QR Ref</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-left">Receipt</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {data?.data.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">
-                      No payments yet.
-                    </td>
-                  </tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No payments yet.</td></tr>
                 )}
                 {data?.data.map((payment) => (
                   <tr key={payment.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono font-bold text-red-700">
-                      #{payment.order?.queue_number ?? payment.order_id}
-                    </td>
-                    <td className="px-4 py-3 capitalize">{payment.payment_method}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-red-700">#{payment.order?.queue_number ?? payment.order_id}</td>
+                    <td className="px-4 py-3 capitalize">{payment.payment_method === 'qr' ? 'QR Code' : payment.payment_method}</td>
                     <td className="px-4 py-3">₱{Number(payment.amount_tendered).toFixed(2)}</td>
                     <td className="px-4 py-3">₱{Number(payment.change_given).toFixed(2)}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs">{payment.qr_reference ?? '—'}</td>
                     <td className="px-4 py-3"><StatusBadge status={payment.status} /></td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">
-                      {payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}
+                    <td className="px-4 py-3 text-gray-400 text-xs">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => handleViewReceipt(payment.id)} className="text-blue-600 hover:underline text-xs">
+                        🧾 View
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -134,46 +126,31 @@ export default function PaymentsPage() {
       )}
 
       {showModal && (
-        <Modal title="Process Payment" onClose={closeModal}>
+        <Modal title="Process Payment" onClose={() => setShowModal(false)}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Select Order</label>
-              <select
-                value={form.order_id}
-                onChange={(e) => setForm({ ...form, order_id: e.target.value })}
-                required
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-              >
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Select Order</label>
+              <select value={form.order_id} onChange={(e) => setForm({ ...form, order_id: e.target.value })} required className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400">
                 <option value="">Choose an order…</option>
                 {unpaidOrders.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    #{o.queue_number} — ₱{Number(o.total_amount).toFixed(2)} ({o.status})
-                  </option>
+                  <option key={o.id} value={o.id}>#{o.queue_number} — ₱{Number(o.total_amount).toFixed(2)} ({o.status})</option>
                 ))}
               </select>
             </div>
 
             {selectedOrder && (
-              <div className="bg-red-50 rounded-lg px-3 py-2 text-sm flex justify-between">
-                <span className="text-gray-500">Order Total</span>
+              <div className="bg-red-50 rounded-xl px-4 py-3 flex justify-between">
+                <span className="text-gray-500 text-sm">Order Total</span>
                 <span className="font-bold text-red-700">₱{Number(selectedOrder.total_amount).toFixed(2)}</span>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Payment Method</label>
+              <label className="text-xs font-medium text-gray-600 mb-2 block">Payment Method</label>
               <div className="flex gap-2">
                 {(['cash', 'qr', 'card'] as PaymentMethod[]).map((method) => (
-                  <button
-                    key={method}
-                    type="button"
-                    onClick={() => setForm({ ...form, payment_method: method })}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition capitalize ${
-                      form.payment_method === method
-                        ? 'bg-red-700 text-white border-red-700'
-                        : 'bg-white text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
+                  <button key={method} type="button" onClick={() => setForm({ ...form, payment_method: method })}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition capitalize ${form.payment_method === method ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
                     {method === 'qr' ? 'QR Code' : method.charAt(0).toUpperCase() + method.slice(1)}
                   </button>
                 ))}
@@ -181,54 +158,35 @@ export default function PaymentsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Amount Tendered (₱)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.amount_tendered}
-                onChange={(e) => setForm({ ...form, amount_tendered: e.target.value })}
-                required
-                placeholder="0.00"
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-              />
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Amount Tendered (₱)</label>
+              <input type="number" step="0.01" min="0" value={form.amount_tendered} onChange={(e) => setForm({ ...form, amount_tendered: e.target.value })} required placeholder="0.00" className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
             </div>
 
             {change !== null && (
-              <div className="bg-green-50 rounded-lg px-3 py-2 text-sm flex justify-between">
-                <span className="text-gray-500">Change</span>
+              <div className="bg-green-50 rounded-xl px-4 py-3 flex justify-between">
+                <span className="text-gray-500 text-sm">Change</span>
                 <span className="font-bold text-green-700">₱{change.toFixed(2)}</span>
               </div>
             )}
 
             {form.payment_method === 'qr' && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">QR Reference</label>
-                <input
-                  type="text"
-                  value={form.qr_reference}
-                  onChange={(e) => setForm({ ...form, qr_reference: e.target.value })}
-                  placeholder="GCash / Maya reference number"
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
-                />
+                <label className="text-xs font-medium text-gray-600 mb-1 block">QR Reference</label>
+                <input value={form.qr_reference} onChange={(e) => setForm({ ...form, qr_reference: e.target.value })} placeholder="GCash / Maya reference number" className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
               </div>
             )}
 
             <div className="flex justify-end gap-2 pt-1">
-              <button type="button" onClick={closeModal} className="border px-4 py-1.5 rounded text-sm hover:bg-gray-50">
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="bg-red-700 text-white px-4 py-1.5 rounded text-sm font-semibold hover:bg-red-800 disabled:opacity-50"
-              >
+              <button type="button" onClick={() => setShowModal(false)} className="border px-4 py-1.5 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+              <button type="submit" disabled={submitting} className="bg-red-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50">
                 {submitting ? 'Processing…' : 'Confirm Payment'}
               </button>
             </div>
           </form>
         </Modal>
       )}
+
+      {receipt && <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />}
     </div>
   );
 }

@@ -64,6 +64,8 @@ export default function ShiftsPage() {
     ? parseFloat(closingCash) - Number(current.expected_cash)
     : null;
 
+  const fmt = (raw: string) => new Date(raw.replace(' ', 'T')).toLocaleString();
+
   return (
     <div className="max-w-4xl">
       <div className="mb-6">
@@ -80,7 +82,7 @@ export default function ShiftsPage() {
                 <span className="text-2xl">🟢</span>
                 <div>
                   <p className="font-bold text-green-800">Shift Open</p>
-                  <p className="text-xs text-gray-500">Since {new Date(current.opened_at).toLocaleString()}</p>
+                  <p className="text-xs text-gray-500">Since {fmt(current.opened_at)}</p>
                 </div>
               </div>
               <div className="text-right">
@@ -212,8 +214,8 @@ export default function ShiftsPage() {
                   return (
                     <tr key={shift.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">{shift.user?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{new Date(shift.opened_at).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{shift.closed_at ? new Date(shift.closed_at).toLocaleString() : '—'}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{fmt(shift.opened_at)}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{shift.closed_at ? fmt(shift.closed_at) : '—'}</td>
                       <td className="px-4 py-3">₱{Number(shift.opening_cash).toFixed(2)}</td>
                       <td className="px-4 py-3">{shift.closing_cash != null ? `₱${Number(shift.closing_cash).toFixed(2)}` : '—'}</td>
                       <td className="px-4 py-3 font-semibold text-green-700">₱{Number(shift.total_sales).toFixed(2)}</td>
