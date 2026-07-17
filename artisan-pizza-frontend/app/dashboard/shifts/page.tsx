@@ -64,7 +64,15 @@ export default function ShiftsPage() {
     ? parseFloat(closingCash) - Number(current.expected_cash)
     : null;
 
-  const fmt = (raw: string) => new Date(raw.replace(' ', 'T')).toLocaleString();
+  const fmt = (raw?: string | null) => {
+    if (!raw) return '—';
+
+    const date = new Date(raw.replace(' ', 'T'));
+
+    return isNaN(date.getTime())
+      ? '—'
+      : date.toLocaleString();
+  };
 
   return (
     <div className="max-w-4xl">
