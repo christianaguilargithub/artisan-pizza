@@ -1,29 +1,26 @@
-import Cookies from 'js-cookie';
 import api from '../api';
-import type { AuthResponse, User } from '@/types';
+import type { User } from '@/types';
 
 export const authService = {
-  async login(email: string, password: string): Promise<AuthResponse> {
-    const { data } = await api.post<AuthResponse>('/auth/login', { email, password });
-    Cookies.set('token', data.token, { expires: 7 });
-    return data;
-  },
+  async login(email: string, password: string): Promise<{ user: User }> {
+    // Calls the Next.js API route which sets an httpOnly cookie
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-  async register(payload: {
-    role_id: number;
-    name: string;
-    email: string;
-    password: string;
-    password_confirmation: string;
-  }): Promise<AuthResponse> {
-    const { data } = await api.post<AuthResponse>('/auth/register', payload);
-    Cookies.set('token', data.token, { expires: 7 });
-    return data;
+    if (!res.ok) {
+      const err = await res.json();
+      throw { response: { data: err, status: res.status } };
+    }
+
+    return res.json();
   },
 
   async logout(): Promise<void> {
-    await api.post('/auth/logout');
-    Cookies.remove('token');
+    // Calls the Next.js API route which clears the httpOnly cookie
+    await fetch('/api/auth/logout', { method: 'POST' });
   },
 
   async me(): Promise<User> {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { shiftService } from '@/lib/services/shiftService';
 import Pagination from '@/components/ui/Pagination';
+import TableSkeleton from '@/components/ui/Skeleton';
 import type { PaginatedResponse, Shift } from '@/types';
 
 export default function ShiftsPage() {
@@ -210,7 +211,7 @@ export default function ShiftsPage() {
       {/* Shift history */}
       <h2 className="text-lg font-bold text-gray-800 mb-4">Shift History</h2>
       {loading ? (
-        <p className="text-gray-400 text-sm">Loading…</p>
+        <TableSkeleton rows={5} cols={8} />
       ) : (
         <>
           <div className="bg-white rounded-xl border shadow-sm overflow-hidden">

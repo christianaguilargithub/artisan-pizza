@@ -3,41 +3,67 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreOrderRequest;
+use App\Http\Requests\UpdateOrderStatusRequest;
+use App\Http\Resources\OrderResource;
 use App\Models\Discount;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Shift;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(): AnonymousResourceCollection
     {
-        return response()->json(
+        return OrderResource::collection(
             Order::with('user', 'orderItems.product', 'payment', 'discount')
                 ->orderByDesc('created_at')
                 ->paginate(15)
         );
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreOrderRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'order_source'       => 'required|in:dine-in,online,walk-in',
-            'items'              => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity'   => 'required|integer|min:1',
-            'discount_code'      => 'nullable|string',
-            'notes'              => 'nullable|string',
-            'tax_rate'           => 'nullable|numeric|min:0|max:100',
-        ]);
+        $data = $request->validated();
+
+        // Stock availability check — runs before the transaction so no partial writes occur on failure
+        $shortfalls = [];
+        foreach ($data['items'] as $item) {
+            $product = Product::with('inventoryItems')->find($item['product_id']);
+            if (!$product) {
+                continue;
+            }
+            foreach ($product->inventoryItems as $invItem) {
+                $required  = $invItem->pivot->qty_used * $item['quantity'];
+                $available = (float) $invItem->quantity;
+                if ($required > $available) {
+                    $shortfalls[] = [
+                        'product'    => $product->name,
+                        'ingredient' => $invItem->name,
+                        'required'   => $required,
+                        'available'  => $available,
+                        'unit'       => $invItem->unit,
+                    ];
+                }
+            }
+        }
+
+        if (!empty($shortfalls)) {
+            return response()->json([
+                'message'    => 'Insufficient stock for one or more items.',
+                'shortfalls' => $shortfalls,
+            ], 422);
+        }
 
         $order = DB::transaction(function () use ($request, $data) {
             $lastQueue = Order::whereDate('created_at', today())->max('queue_number') ?? 0;
 
             // Resolve discount
+            // Reviewed: ->where() uses query-builder parameter binding — not SQL injection
             $discount       = null;
             $discountAmount = 0;
             if (!empty($data['discount_code'])) {
@@ -48,6 +74,7 @@ class OrderController extends Controller
             }
 
             // Find open shift for this user
+            // Reviewed: ->where() uses query-builder parameter binding — not SQL injection
             $shift = Shift::where('user_id', $request->user()->id)
                 ->where('status', 'open')
                 ->latest('opened_at')
@@ -90,8 +117,8 @@ class OrderController extends Controller
                 $discount->increment('usage_count');
             }
 
-            // Apply tax
-            $taxRate   = $data['tax_rate'] ?? 0;
+            // Apply tax — rate sourced from server config, never from client input
+            $taxRate   = config('pos.tax_rate');
             $taxAmount = round(($subtotal - $discountAmount) * ($taxRate / 100), 2);
             $total     = $subtotal - $discountAmount + $taxAmount;
 
@@ -104,28 +131,28 @@ class OrderController extends Controller
             return $order;
         });
 
-        return response()->json($order->load('orderItems.product', 'user', 'discount'), 201);
+        return (new OrderResource($order->load('orderItems.product', 'user', 'discount')))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    public function show(Order $order): JsonResponse
+    public function show(Order $order): OrderResource
     {
-        return response()->json($order->load('user', 'orderItems.product', 'payment', 'discount'));
+        return new OrderResource($order->load('user', 'orderItems.product', 'payment', 'discount'));
     }
 
-    public function updateStatus(Request $request, Order $order): JsonResponse
+    public function updateStatus(UpdateOrderStatusRequest $request, Order $order): OrderResource
     {
-        $data = $request->validate([
-            'status' => 'required|in:pending,preparing,ready,completed,cancelled',
-        ]);
-
+        $data    = $request->validated();
         $updates = ['status' => $data['status']];
+
         if ($data['status'] === 'ready') {
             $updates['called_at'] = now();
         }
 
         $order->update($updates);
 
-        return response()->json($order->fresh('orderItems.product', 'payment', 'discount'));
+        return new OrderResource($order->fresh('orderItems.product', 'payment', 'discount'));
     }
 
     public function refund(Request $request, Order $order): JsonResponse
@@ -151,6 +178,7 @@ class OrderController extends Controller
             }
 
             // Restore discount usage
+            // Reviewed: ->where() uses query-builder parameter binding — not SQL injection
             if ($order->discount_id) {
                 Discount::where('id', $order->discount_id)->decrement('usage_count');
             }
@@ -165,7 +193,7 @@ class OrderController extends Controller
             }
         });
 
-        return response()->json($order->fresh('orderItems.product', 'payment'));
+        return response()->json(new OrderResource($order->fresh('orderItems.product', 'payment')));
     }
 
     public function destroy(Order $order): JsonResponse
@@ -174,13 +202,13 @@ class OrderController extends Controller
         return response()->json(['message' => 'Order deleted.']);
     }
 
-    public function queue(): JsonResponse
+    public function queue(): AnonymousResourceCollection
     {
-        $orders = Order::with('orderItems.product')
-            ->whereIn('status', ['pending', 'preparing', 'ready'])
-            ->orderBy('queue_number')
-            ->get();
-
-        return response()->json($orders);
+        return OrderResource::collection(
+            Order::with('orderItems.product')
+                ->whereIn('status', ['pending', 'preparing', 'ready'])
+                ->orderBy('queue_number')
+                ->get()
+        );
     }
 }

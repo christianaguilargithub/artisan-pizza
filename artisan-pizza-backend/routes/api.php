@@ -14,56 +14,82 @@ use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Public Auth Routes ────────────────────────────────────────────────────────
+Route::prefix('v1')->group(function () {
+
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
-    Route::post('login',    [AuthController::class, 'login']);
+    Route::post('login',    [AuthController::class, 'login'])->middleware('throttle:10,1');
 });
 
 // ─── Protected Routes ──────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Auth
+    // Auth (any authenticated user)
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/me',      [AuthController::class, 'me']);
 
-    // Roles
-    Route::apiResource('roles', RoleController::class);
+    // Kitchen queue — all authenticated roles
+    Route::get('orders/queue', [OrderController::class, 'queue']);
 
-    // Users
-    Route::apiResource('users', UserController::class);
+    // ── Admin only ────────────────────────────────────────────────────────────
+    Route::middleware('role:admin')->group(function () {
+        Route::apiResource('roles', RoleController::class);
+        Route::apiResource('users', UserController::class);
 
-    // Categories
-    Route::apiResource('categories', CategoryController::class);
+        Route::apiResource('categories', CategoryController::class)->except(['index', 'show']);
+        Route::apiResource('products', ProductController::class)->except(['index', 'show']);
+        Route::post('products/{product}/inventory',                     [ProductController::class, 'attachInventory']);
+        Route::delete('products/{product}/inventory/{inventoryItemId}', [ProductController::class, 'detachInventory']);
 
-    // Products
-    Route::apiResource('products', ProductController::class);
-    Route::post('products/{product}/inventory',                      [ProductController::class, 'attachInventory']);
-    Route::delete('products/{product}/inventory/{inventoryItemId}',  [ProductController::class, 'detachInventory']);
+        Route::apiResource('inventory-items', InventoryItemController::class)->except(['index', 'show']);
 
-    // Inventory Items
-    Route::apiResource('inventory-items', InventoryItemController::class);
+        Route::apiResource('discounts', DiscountController::class)->except(['index', 'show']);
 
-    // Orders
-    Route::get('orders/queue',              [OrderController::class, 'queue']);
-    Route::apiResource('orders', OrderController::class)->except(['update']);
-    Route::patch('orders/{order}/status',   [OrderController::class, 'updateStatus']);
-    Route::post('orders/{order}/refund',    [OrderController::class, 'refund']);
+        Route::get('reports/daily', [ReportController::class, 'daily']);
 
-    // Payments
-    Route::get('payments/{payment}/receipt', [PaymentController::class, 'receipt']);
-    Route::apiResource('payments', PaymentController::class);
+        Route::delete('orders/{order}', [OrderController::class, 'destroy']);
 
-    // Shifts
-    Route::get('shifts',                    [ShiftController::class, 'index']);
-    Route::get('shifts/current',            [ShiftController::class, 'current']);
-    Route::post('shifts/open',              [ShiftController::class, 'open']);
-    Route::post('shifts/{shift}/close',     [ShiftController::class, 'close']);
-    Route::get('shifts/{shift}',            [ShiftController::class, 'show']);
+        // Payment void — admin only, never hard-deletes
+        Route::post('payments/{payment}/void', [PaymentController::class, 'void']);
+    });
 
-    // Discounts
-    Route::post('discounts/validate',       [DiscountController::class, 'validate']);
-    Route::apiResource('discounts', DiscountController::class);
+    // ── Admin + Cashier ───────────────────────────────────────────────────────
+    Route::middleware('role:admin,cashier')->group(function () {
+        // Orders (create + read + status + refund)
+        Route::get('orders',                      [OrderController::class, 'index']);
+        Route::post('orders',                     [OrderController::class, 'store']);
+        Route::get('orders/{order}',              [OrderController::class, 'show']);
+        Route::patch('orders/{order}/status',     [OrderController::class, 'updateStatus']);
+        Route::post('orders/{order}/refund',      [OrderController::class, 'refund']);
 
-    // Reports
-    Route::get('reports/daily',             [ReportController::class, 'daily']);
+        // Payments
+        Route::get('payments/{payment}/receipt',  [PaymentController::class, 'receipt']);
+        Route::get('payments',                    [PaymentController::class, 'index']);
+        Route::post('payments',                   [PaymentController::class, 'store']);
+        Route::get('payments/{payment}',          [PaymentController::class, 'show']);
+        Route::put('payments/{payment}',          [PaymentController::class, 'update']);
+        // void is admin-only — declared inside the admin group below
+
+        // Shifts
+        Route::get('shifts',                      [ShiftController::class, 'index']);
+        Route::get('shifts/current',              [ShiftController::class, 'current']);
+        Route::post('shifts/open',                [ShiftController::class, 'open']);
+        Route::post('shifts/{shift}/close',       [ShiftController::class, 'close']);
+        Route::get('shifts/{shift}',              [ShiftController::class, 'show']);
+
+        // Discounts — read + validate available to cashier for POS
+        Route::get('discounts',                   [DiscountController::class, 'index']);
+        Route::get('discounts/{discount}',        [DiscountController::class, 'show']);
+        Route::post('discounts/validate',         [DiscountController::class, 'validate']);
+    });
+
+    // ── Read-only product/category/inventory — all authenticated roles ─────────
+    Route::get('categories',              [CategoryController::class, 'index']);
+    Route::get('categories/{category}',   [CategoryController::class, 'show']);
+    Route::get('products',                [ProductController::class, 'index']);
+    Route::get('products/{product}',      [ProductController::class, 'show']);
+    Route::get('inventory-items',         [InventoryItemController::class, 'index']);
+    Route::get('inventory-items/{inventoryItem}', [InventoryItemController::class, 'show']);
 });
+
+}); // end v1

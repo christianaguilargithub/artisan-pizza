@@ -3,15 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\RoleResource;
 use App\Models\Role;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class RoleController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(): AnonymousResourceCollection
     {
-        return response()->json(Role::all());
+        return RoleResource::collection(Role::all());
     }
 
     public function store(Request $request): JsonResponse
@@ -20,17 +22,17 @@ class RoleController extends Controller
             'name' => 'required|string|unique:roles,name|max:100',
         ]);
 
-        $role = Role::create($data);
-
-        return response()->json($role, 201);
+        return (new RoleResource(Role::create($data)))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    public function show(Role $role): JsonResponse
+    public function show(Role $role): RoleResource
     {
-        return response()->json($role->load('users'));
+        return new RoleResource($role->load('users'));
     }
 
-    public function update(Request $request, Role $role): JsonResponse
+    public function update(Request $request, Role $role): RoleResource
     {
         $data = $request->validate([
             'name' => 'required|string|unique:roles,name,' . $role->id . '|max:100',
@@ -38,7 +40,7 @@ class RoleController extends Controller
 
         $role->update($data);
 
-        return response()->json($role);
+        return new RoleResource($role);
     }
 
     public function destroy(Role $role): JsonResponse

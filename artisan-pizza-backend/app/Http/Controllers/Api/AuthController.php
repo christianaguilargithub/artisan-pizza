@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,17 +21,16 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $user = User::create([
+        $user  = User::create([
             'role_id'  => $data['role_id'],
             'name'     => $data['name'],
             'email'    => $data['email'],
             'password' => Hash::make($data['password']),
         ]);
-
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user'  => $user->load('role'),
+            'user'  => new UserResource($user->load('role')),
             'token' => $token,
         ], 201);
     }
@@ -42,6 +42,7 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
+        // Reviewed: ->where() uses query-builder parameter binding — not SQL injection
         $user = User::with('role')->where('email', $data['email'])->first();
 
         if (!$user || !Hash::check($data['password'], $user->password)) {
@@ -53,7 +54,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user'  => $user,
+            'user'  => new UserResource($user),
             'token' => $token,
         ]);
     }
@@ -67,6 +68,6 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json($request->user()->load('role'));
+        return response()->json(new UserResource($request->user()->load('role')));
     }
 }

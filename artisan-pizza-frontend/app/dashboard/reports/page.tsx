@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { reportService } from '@/lib/services/reportService';
+import { CardSkeleton } from '@/components/ui/Skeleton';
 import type { DailyReport } from '@/types';
 
 export default function ReportsPage() {
@@ -43,11 +44,7 @@ export default function ReportsPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="rounded-xl border bg-gray-50 p-5 animate-pulse h-24" />
-          ))}
-        </div>
+        <div className="mb-8"><CardSkeleton count={4} /></div>
       ) : report ? (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
