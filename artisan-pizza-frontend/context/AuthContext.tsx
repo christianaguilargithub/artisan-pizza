@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { authService } from '@/lib/services/authService';
 import type { User } from '@/types';
 
@@ -14,6 +15,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({} as AuthContextValue);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,8 +30,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // On mount, attempt to restore session — the httpOnly cookie is sent automatically
-  useEffect(() => { fetchMe(); }, [fetchMe]);
+  useEffect(() => {
+    if (pathname === '/login') {
+      setLoading(false);
+      return;
+    }
+    fetchMe();
+  }, [fetchMe, pathname]);
 
   const login = async (email: string, password: string) => {
     const { user } = await authService.login(email, password);
