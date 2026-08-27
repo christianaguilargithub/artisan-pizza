@@ -8,26 +8,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Table already exists in DB with compatible schema — rename columns to match
-        Schema::table('discounts', function (Blueprint $table) {
-            // Add missing columns if they don't exist
-            if (!Schema::hasColumn('discounts', 'code')) {
-                $table->string('code')->unique()->nullable();
-            }
-            if (!Schema::hasColumn('discounts', 'description')) {
-                $table->string('description')->nullable();
-            }
-            if (!Schema::hasColumn('discounts', 'max_uses')) {
-                $table->integer('max_uses')->nullable();
-            }
-            if (!Schema::hasColumn('discounts', 'used_count')) {
-                $table->integer('used_count')->default(0);
-            }
-        });
+        if (!Schema::hasTable('discounts')) {
+            Schema::create('discounts', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('promo_code', 50)->unique();
+                $table->enum('type', ['fixed', 'percent']);
+                $table->decimal('value', 10, 2);
+                $table->integer('usage_limit')->nullable();
+                $table->integer('usage_count')->default(0);
+                $table->boolean('is_active')->default(true);
+                $table->timestamp('expires_at')->nullable();
+                $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void
     {
-        // intentionally left blank
+        Schema::dropIfExists('discounts');
     }
 };

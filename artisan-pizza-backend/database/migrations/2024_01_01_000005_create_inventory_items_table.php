@@ -13,6 +13,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('unit');
             $table->decimal('quantity', 10, 2);
+            $table->decimal('low_stock_threshold', 10, 2)->default(0);
             $table->integer('author');
             $table->timestamps();
         });

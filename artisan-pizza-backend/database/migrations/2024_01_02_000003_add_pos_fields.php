@@ -8,23 +8,27 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // discount_id, discount_amount, tax_amount, notes, refunded_at already exist from prior session
-        // Only add shift_id if missing
-        if (!Schema::hasColumn('orders', 'shift_id')) {
-            Schema::table('orders', function (Blueprint $table) {
+        Schema::table('orders', function (Blueprint $table) {
+            if (!Schema::hasColumn('orders', 'shift_id')) {
                 $table->foreignId('shift_id')->nullable()->constrained('shifts')->nullOnDelete()->after('user_id');
-            });
-        }
-
-        // low_stock_threshold already exists
+            }
+            // Add FK constraint for discount_id now that discounts table exists
+            if (Schema::hasColumn('orders', 'discount_id')) {
+                try {
+                    $table->foreign('discount_id')->references('id')->on('discounts')->nullOnDelete();
+                } catch (\Exception $e) {
+                    // FK may already exist on existing DB
+                }
+            }
+        });
     }
 
     public function down(): void
     {
-        if (Schema::hasColumn('orders', 'shift_id')) {
-            Schema::table('orders', function (Blueprint $table) {
+        Schema::table('orders', function (Blueprint $table) {
+            if (Schema::hasColumn('orders', 'shift_id')) {
                 $table->dropConstrainedForeignId('shift_id');
-            });
-        }
+            }
+        });
     }
 };
