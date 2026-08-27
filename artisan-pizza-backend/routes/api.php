@@ -50,8 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('orders/{order}/refund',    [OrderController::class, 'refund']);
 
     // Payments
-    Route::apiResource('payments', PaymentController::class);
     Route::get('payments/{payment}/receipt', [PaymentController::class, 'receipt']);
+    Route::apiResource('payments', PaymentController::class);
 
     // Shifts
     Route::get('shifts',                    [ShiftController::class, 'index']);
@@ -61,8 +61,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('shifts/{shift}',            [ShiftController::class, 'show']);
 
     // Discounts
-    Route::apiResource('discounts', DiscountController::class);
     Route::post('discounts/validate',       [DiscountController::class, 'validate']);
+    Route::apiResource('discounts', DiscountController::class);
 
     // Reports
     Route::get('reports/daily',             [ReportController::class, 'daily']);

@@ -20,6 +20,8 @@ export default function ShiftsPage() {
   const [closingCash, setClosingCash] = useState('');
   const [closeNotes, setCloseNotes] = useState('');
 
+  const [error, setError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     const [cur, shifts] = await Promise.all([
@@ -36,11 +38,15 @@ export default function ShiftsPage() {
   const handleOpen = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
     try {
       await shiftService.open({ opening_cash: parseFloat(openingCash), notes: openNotes || undefined });
       setOpeningCash('');
       setOpenNotes('');
       await load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Failed to open shift.');
     } finally {
       setSubmitting(false);
     }
@@ -48,13 +54,17 @@ export default function ShiftsPage() {
 
   const handleClose = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!current) return;
+    if (!current?.id) return;
     setSubmitting(true);
+    setError(null);
     try {
       await shiftService.close(current.id, { closing_cash: parseFloat(closingCash), notes: closeNotes || undefined });
       setClosingCash('');
       setCloseNotes('');
       await load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Failed to close shift.');
     } finally {
       setSubmitting(false);
     }
@@ -80,6 +90,12 @@ export default function ShiftsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Shift Management</h1>
         <p className="text-sm text-gray-500 mt-1">Open and close your cashier shift, track cash reconciliation</p>
       </div>
+
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
+          {error}
+        </div>
+      )}
 
       {/* Current shift card */}
       <div className={`rounded-2xl border p-6 mb-8 ${current ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>

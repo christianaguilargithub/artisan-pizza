@@ -18,12 +18,15 @@ class ShiftController extends Controller
 
     public function current(Request $request): JsonResponse
     {
-        $shift = Shift::where('user_id', $request->user()->id)
-            ->where('status', 'open')
-            ->latest('opened_at')
-            ->first();
+        $user  = $request->user();
+        $query = Shift::where('status', 'open')->latest('opened_at');
 
-        return response()->json($shift);
+        // Admins see any open shift; cashiers only see their own
+        if ($user->role?->name !== 'admin') {
+            $query->where('user_id', $user->id);
+        }
+
+        return response()->json($query->with('user')->first());
     }
 
     public function open(Request $request): JsonResponse
@@ -73,7 +76,7 @@ class ShiftController extends Controller
             ->whereHas('payment', fn($q) => $q->where('payment_method', 'cash')->where('status', 'paid'))
             ->with('payment')
             ->get()
-            ->sum(fn($o) => $o->payment?->amount_tendered - $o->payment?->change_given ?? 0);
+            ->sum(fn($o) => ($o->payment ? $o->payment->amount_tendered - $o->payment->change_given : 0));
 
         $expectedCash = $shift->opening_cash + $cashSales;
 
