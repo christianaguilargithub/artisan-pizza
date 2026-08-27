@@ -134,7 +134,16 @@ export default function QueuePage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Loading queue…</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[...Array(3)].map((_, column) => (
+            <div key={column} className="space-y-3">
+              <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+              {[...Array(2)].map((__, card) => (
+                <div key={card} className="h-32 bg-white border rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {columns.map(({ status, label, color, bg }) => (

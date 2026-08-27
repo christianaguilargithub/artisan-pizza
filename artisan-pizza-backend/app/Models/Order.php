@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'user_id', 'discount_id', 'shift_id',
         'queue_number', 'order_source', 'status',
@@ -22,6 +24,7 @@ class Order extends Model
         'tax_amount'      => 'decimal:2',
         'called_at'       => 'datetime',
         'refunded_at'     => 'datetime',
+        'deleted_at'      => 'datetime',
     ];
 
     public function user(): BelongsTo

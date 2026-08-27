@@ -3,61 +3,49 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreDiscountRequest;
+use App\Http\Requests\UpdateDiscountRequest;
+use App\Http\Resources\DiscountResource;
 use App\Models\Discount;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class DiscountController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(): AnonymousResourceCollection
     {
-        return response()->json(Discount::with('creator')->orderByDesc('created_at')->get());
+        return DiscountResource::collection(
+            Discount::with('creator')->orderByDesc('created_at')->paginate(15)
+        );
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreDiscountRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'name'        => 'required|string|max:255',
-            'promo_code'  => 'required|string|max:50|unique:discounts,promo_code',
-            'type'        => 'required|in:fixed,percent',
-            'value'       => 'required|numeric|min:0',
-            'usage_limit' => 'nullable|integer|min:1',
-            'is_active'   => 'boolean',
-            'expires_at'  => 'nullable|date',
-        ]);
-
+        $data               = $request->validated();
         $data['created_by'] = $request->user()->id;
 
-        $discount = Discount::create($data);
-
-        return response()->json($discount->load('creator'), 201);
+        return (new DiscountResource(Discount::create($data)->load('creator')))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    public function show(Discount $discount): JsonResponse
+    public function show(Discount $discount): DiscountResource
     {
-        return response()->json($discount->load('creator'));
+        return new DiscountResource($discount->load('creator'));
     }
 
-    public function update(Request $request, Discount $discount): JsonResponse
+    public function update(UpdateDiscountRequest $request, Discount $discount): DiscountResource
     {
-        $data = $request->validate([
-            'name'        => 'sometimes|string|max:255',
-            'promo_code'  => 'sometimes|string|max:50|unique:discounts,promo_code,' . $discount->id,
-            'type'        => 'sometimes|in:fixed,percent',
-            'value'       => 'sometimes|numeric|min:0',
-            'usage_limit' => 'nullable|integer|min:1',
-            'is_active'   => 'boolean',
-            'expires_at'  => 'nullable|date',
-        ]);
+        $discount->update($request->validated());
 
-        $discount->update($data);
-
-        return response()->json($discount->load('creator'));
+        return new DiscountResource($discount->load('creator'));
     }
 
     public function destroy(Discount $discount): JsonResponse
     {
         $discount->delete();
+
         return response()->json(['message' => 'Discount deleted.']);
     }
 
@@ -65,12 +53,13 @@ class DiscountController extends Controller
     {
         $request->validate(['code' => 'required|string']);
 
+        // Reviewed: ->where() uses query-builder parameter binding — not SQL injection
         $discount = Discount::where('promo_code', strtoupper($request->code))->first();
 
         if (!$discount || !$discount->isValid()) {
             return response()->json(['message' => 'Invalid or expired discount code.'], 422);
         }
 
-        return response()->json($discount);
+        return response()->json(new DiscountResource($discount));
     }
 }

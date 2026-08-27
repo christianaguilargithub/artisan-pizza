@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { discountService } from '@/lib/services/discountService';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import TableSkeleton from '@/components/ui/Skeleton';
 import type { Discount } from '@/types';
 
 interface DiscountForm {
@@ -26,6 +28,7 @@ export default function DiscountsPage() {
   const [editTarget, setEditTarget] = useState<Discount | null>(null);
   const [form, setForm] = useState<DiscountForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -74,8 +77,13 @@ export default function DiscountsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this discount?')) return;
-    await discountService.delete(id);
+    setConfirmDelete(id);
+  };
+
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    await discountService.delete(confirmDelete);
+    setConfirmDelete(null);
     await load();
   };
 
@@ -97,7 +105,7 @@ export default function DiscountsPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Loading…</p>
+        <TableSkeleton rows={5} cols={8} />
       ) : (
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
           <table className="w-full text-sm">
@@ -147,6 +155,16 @@ export default function DiscountsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {confirmDelete !== null && (
+        <ConfirmDialog
+          title="Delete Discount"
+          message="This promo code will be permanently deleted. Continue?"
+          confirmLabel="Delete"
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
 
       {showModal && (

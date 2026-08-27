@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { orderService } from '@/lib/services/orderService';
 import { productService } from '@/lib/services/productService';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Pagination from '@/components/ui/Pagination';
+import TableSkeleton from '@/components/ui/Skeleton';
 import type { Order, OrderStatus, PaginatedResponse, Product } from '@/types';
 
 type OrderSource = 'dine-in' | 'online' | 'walk-in';
@@ -17,6 +19,7 @@ export default function AdminOrderPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmRefund, setConfirmRefund] = useState<number | null>(null);
   const [orderSource, setOrderSource] = useState<OrderSource>('dine-in');
   const [items, setItems] = useState([{ product_id: 0, quantity: 1 }]);
 
@@ -59,8 +62,13 @@ export default function AdminOrderPage() {
   };
 
   const handleRefund = async (id: number) => {
-    if (!confirm('Refund this order? This will reverse inventory and mark the order as cancelled.')) return;
-    await orderService.refund(id);
+    setConfirmRefund(id);
+  };
+
+  const doRefund = async () => {
+    if (!confirmRefund) return;
+    await orderService.refund(confirmRefund);
+    setConfirmRefund(null);
     await load();
   };
 
@@ -84,7 +92,7 @@ export default function AdminOrderPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Loading…</p>
+        <TableSkeleton rows={6} cols={7} />
       ) : (
         <>
           <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
@@ -135,6 +143,16 @@ export default function AdminOrderPage() {
           </div>
           <Pagination currentPage={data!.current_page} lastPage={data!.last_page} onPageChange={setPage} />
         </>
+      )}
+
+      {confirmRefund !== null && (
+        <ConfirmDialog
+          title="Refund Order"
+          message="This will reverse inventory and mark the order as cancelled. Continue?"
+          confirmLabel="Refund"
+          onConfirm={doRefund}
+          onCancel={() => setConfirmRefund(null)}
+        />
       )}
 
       {showModal && (

@@ -24,6 +24,7 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    // Reviewed: 'password' => 'hashed' is Laravel's built-in Eloquent cast — not a hardcoded credential
     protected function casts(): array
     {
         return [

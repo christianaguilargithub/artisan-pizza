@@ -7,6 +7,7 @@ import Modal from '@/components/ui/Modal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Pagination from '@/components/ui/Pagination';
 import ReceiptModal from '@/components/ui/ReceiptModal';
+import TableSkeleton from '@/components/ui/Skeleton';
 import type { Order, PaginatedResponse, Payment, PaymentMethod, ReceiptData } from '@/types';
 
 interface PaymentForm {
@@ -81,7 +82,7 @@ export default function PaymentsPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Loading…</p>
+        <TableSkeleton rows={5} cols={8} />
       ) : (
         <>
           <div className="bg-white rounded-xl border shadow-sm overflow-hidden">

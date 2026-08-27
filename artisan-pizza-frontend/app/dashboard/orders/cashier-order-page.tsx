@@ -10,6 +10,7 @@ import { paymentService } from '@/lib/services/paymentService';
 import ReceiptModal from '@/components/ui/ReceiptModal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Pagination from '@/components/ui/Pagination';
+import TableSkeleton from '@/components/ui/Skeleton';
 import type { Category, Discount, Order, OrderSource, OrderStatus, PaginatedResponse, Product, ReceiptData } from '@/types';
 
 type PaymentMethod = 'cash' | 'qr' | 'card';
@@ -259,7 +260,7 @@ export default function CashierOrderPage() {
               <h2 className="text-sm font-semibold text-gray-700">Recent Orders</h2>
             </div>
             {loading ? (
-              <p className="text-gray-400 text-sm p-4">Loading…</p>
+              <TableSkeleton rows={4} cols={4} />
             ) : (
               <>
                 <table className="w-full text-sm">

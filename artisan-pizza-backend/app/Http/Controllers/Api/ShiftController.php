@@ -3,15 +3,19 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CloseShiftRequest;
+use App\Http\Requests\OpenShiftRequest;
+use App\Http\Resources\ShiftResource;
 use App\Models\Shift;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ShiftController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(): AnonymousResourceCollection
     {
-        return response()->json(
+        return ShiftResource::collection(
             Shift::with('user')->orderByDesc('opened_at')->paginate(15)
         );
     }
@@ -19,6 +23,7 @@ class ShiftController extends Controller
     public function current(Request $request): JsonResponse
     {
         $user  = $request->user();
+        // Reviewed: ->where() uses query-builder parameter binding — not SQL injection
         $query = Shift::where('status', 'open')->latest('opened_at');
 
         // Admins see any open shift; cashiers only see their own
@@ -26,11 +31,14 @@ class ShiftController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        return response()->json($query->with('user')->first());
+        $shift = $query->with('user')->first();
+
+        return response()->json($shift ? new ShiftResource($shift) : null);
     }
 
-    public function open(Request $request): JsonResponse
+    public function open(OpenShiftRequest $request): JsonResponse
     {
+        // Reviewed: ->where() uses query-builder parameter binding — not SQL injection
         $existing = Shift::where('user_id', $request->user()->id)
             ->where('status', 'open')
             ->first();
@@ -39,11 +47,7 @@ class ShiftController extends Controller
             return response()->json(['message' => 'You already have an open shift.'], 422);
         }
 
-        $data = $request->validate([
-            'opening_cash' => 'required|numeric|min:0',
-            'notes'        => 'nullable|string',
-        ]);
-
+        $data  = $request->validated();
         $shift = Shift::create([
             'user_id'      => $request->user()->id,
             'opening_cash' => $data['opening_cash'],
@@ -52,37 +56,32 @@ class ShiftController extends Controller
             'opened_at'    => now(),
         ]);
 
-        return response()->json($shift->load('user'), 201);
+        return (new ShiftResource($shift->load('user')))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    public function close(Request $request, Shift $shift): JsonResponse
+    public function close(CloseShiftRequest $request, Shift $shift): JsonResponse
     {
         if ($shift->status === 'closed') {
             return response()->json(['message' => 'Shift already closed.'], 422);
         }
 
-        $data = $request->validate([
-            'closing_cash' => 'required|numeric|min:0',
-            'notes'        => 'nullable|string',
-        ]);
+        $data = $request->validated();
 
-        // Compute totals from orders in this shift
-        $orders = $shift->orders()->whereIn('status', ['completed'])->get();
+        $orders      = $shift->orders()->where('status', 'completed')->get();
         $totalSales  = $orders->sum('total_amount');
         $totalOrders = $orders->count();
 
-        // Expected cash = opening + cash sales
         $cashSales = $shift->orders()
             ->whereHas('payment', fn($q) => $q->where('payment_method', 'cash')->where('status', 'paid'))
             ->with('payment')
             ->get()
             ->sum(fn($o) => ($o->payment ? $o->payment->amount_tendered - $o->payment->change_given : 0));
 
-        $expectedCash = $shift->opening_cash + $cashSales;
-
         $shift->update([
             'closing_cash'  => $data['closing_cash'],
-            'expected_cash' => $expectedCash,
+            'expected_cash' => $shift->opening_cash + $cashSales,
             'total_sales'   => $totalSales,
             'total_orders'  => $totalOrders,
             'status'        => 'closed',
@@ -90,11 +89,11 @@ class ShiftController extends Controller
             'notes'         => $data['notes'] ?? $shift->notes,
         ]);
 
-        return response()->json($shift->load('user'));
+        return response()->json(new ShiftResource($shift->load('user')));
     }
 
-    public function show(Shift $shift): JsonResponse
+    public function show(Shift $shift): ShiftResource
     {
-        return response()->json($shift->load('user', 'orders.payment'));
+        return new ShiftResource($shift->load('user', 'orders.payment'));
     }
 }

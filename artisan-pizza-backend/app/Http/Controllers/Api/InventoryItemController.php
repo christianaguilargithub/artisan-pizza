@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreInventoryItemRequest;
+use App\Http\Requests\UpdateInventoryItemRequest;
+use App\Http\Resources\InventoryItemResource;
 use App\Models\InventoryItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class InventoryItemController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
         $query = InventoryItem::query();
 
@@ -22,45 +26,35 @@ class InventoryItemController extends Controller
                   ->whereColumn('quantity', '<=', 'low_stock_threshold');
         }
 
-        return response()->json($query->paginate(15));
+        return InventoryItemResource::collection($query->paginate(15));
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreInventoryItemRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'name'                => 'required|string|max:255',
-            'unit'                => 'required|string|max:50',
-            'quantity'            => 'required|numeric|min:0',
-            'low_stock_threshold' => 'nullable|numeric|min:0',
-        ]);
-
+        $data           = $request->validated();
         $data['author'] = $request->user()->id;
 
-        return response()->json(InventoryItem::create($data), 201);
+        return (new InventoryItemResource(InventoryItem::create($data)))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    public function show(InventoryItem $inventoryItem): JsonResponse
+    public function show(InventoryItem $inventoryItem): InventoryItemResource
     {
-        return response()->json($inventoryItem->load('products'));
+        return new InventoryItemResource($inventoryItem->load('products'));
     }
 
-    public function update(Request $request, InventoryItem $inventoryItem): JsonResponse
+    public function update(UpdateInventoryItemRequest $request, InventoryItem $inventoryItem): InventoryItemResource
     {
-        $data = $request->validate([
-            'name'                => 'sometimes|string|max:255',
-            'unit'                => 'sometimes|string|max:50',
-            'quantity'            => 'sometimes|numeric|min:0',
-            'low_stock_threshold' => 'nullable|numeric|min:0',
-        ]);
+        $inventoryItem->update($request->validated());
 
-        $inventoryItem->update($data);
-
-        return response()->json($inventoryItem);
+        return new InventoryItemResource($inventoryItem);
     }
 
     public function destroy(InventoryItem $inventoryItem): JsonResponse
     {
         $inventoryItem->delete();
+
         return response()->json(['message' => 'Inventory item deleted.']);
     }
 }

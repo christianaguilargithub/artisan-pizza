@@ -5,7 +5,9 @@ import Image from 'next/image';
 import { productService } from '@/lib/services/productService';
 import { categoryService } from '@/lib/services/categoryService';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Pagination from '@/components/ui/Pagination';
+import TableSkeleton from '@/components/ui/Skeleton';
 import type { Category, PaginatedResponse, Product } from '@/types';
 
 interface ProductForm {
@@ -27,6 +29,7 @@ export default function ProductsPage() {
   const [editTarget, setEditTarget] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -94,8 +97,13 @@ export default function ProductsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this product?')) return;
-    await productService.delete(id);
+    setConfirmDelete(id);
+  };
+
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    await productService.delete(confirmDelete);
+    setConfirmDelete(null);
     await load();
   };
 
@@ -112,7 +120,7 @@ export default function ProductsPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500 text-sm">Loading…</p>
+        <TableSkeleton rows={5} cols={5} />
       ) : (
         <>
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
@@ -165,6 +173,16 @@ export default function ProductsPage() {
           </div>
           <Pagination currentPage={data!.current_page} lastPage={data!.last_page} onPageChange={setPage} />
         </>
+      )}
+
+      {confirmDelete !== null && (
+        <ConfirmDialog
+          title="Delete Product"
+          message="This product will be soft-deleted and removed from the menu. Continue?"
+          confirmLabel="Delete"
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
 
       {showModal && (

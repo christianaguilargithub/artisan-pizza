@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { categoryService } from '@/lib/services/categoryService';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import TableSkeleton from '@/components/ui/Skeleton';
 import type { Category } from '@/types';
 
 export default function CategoriesPage() {
@@ -12,6 +14,7 @@ export default function CategoriesPage() {
   const [editTarget, setEditTarget] = useState<Category | null>(null);
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -53,8 +56,13 @@ export default function CategoriesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this category?')) return;
-    await categoryService.delete(id);
+    setConfirmDelete(id);
+  };
+
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    await categoryService.delete(confirmDelete);
+    setConfirmDelete(null);
     await load();
   };
 
@@ -71,7 +79,7 @@ export default function CategoriesPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500 text-sm">Loading…</p>
+        <TableSkeleton rows={5} cols={4} />
       ) : (
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <table className="w-full text-sm">
@@ -105,6 +113,16 @@ export default function CategoriesPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {confirmDelete !== null && (
+        <ConfirmDialog
+          title="Delete Category"
+          message="This category will be deleted. Products in this category will be unaffected. Continue?"
+          confirmLabel="Delete"
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
 
       {showModal && (

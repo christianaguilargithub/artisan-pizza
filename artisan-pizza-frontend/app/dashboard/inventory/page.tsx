@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { inventoryService } from '@/lib/services/inventoryService';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Pagination from '@/components/ui/Pagination';
+import TableSkeleton from '@/components/ui/Skeleton';
 import type { InventoryItem, PaginatedResponse } from '@/types';
 
 interface InventoryForm {
@@ -24,6 +26,7 @@ export default function InventoryPage() {
   const [form, setForm] = useState<InventoryForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [filterLowStock, setFilterLowStock] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,8 +64,13 @@ export default function InventoryPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this inventory item?')) return;
-    await inventoryService.delete(id);
+    setConfirmDelete(id);
+  };
+
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    await inventoryService.delete(confirmDelete);
+    setConfirmDelete(null);
     await load();
   };
 
@@ -89,7 +97,7 @@ export default function InventoryPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Loading…</p>
+        <TableSkeleton rows={5} cols={6} />
       ) : (
         <>
           <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
@@ -134,6 +142,16 @@ export default function InventoryPage() {
           </div>
           <Pagination currentPage={data!.current_page} lastPage={data!.last_page} onPageChange={setPage} />
         </>
+      )}
+
+      {confirmDelete !== null && (
+        <ConfirmDialog
+          title="Delete Inventory Item"
+          message="This item will be removed from inventory tracking. Continue?"
+          confirmLabel="Delete"
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
 
       {showModal && (

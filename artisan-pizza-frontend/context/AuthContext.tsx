@@ -1,6 +1,5 @@
 'use client';
 
-import Cookies from 'js-cookie';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { authService } from '@/lib/services/authService';
 import type { User } from '@/types';
@@ -29,14 +28,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    const token = Cookies.get('token');
-    if (token) {
-      fetchMe();
-    } else {
-      setLoading(false);
-    }
-  }, [fetchMe]);
+  // On mount, attempt to restore session — the httpOnly cookie is sent automatically
+  useEffect(() => { fetchMe(); }, [fetchMe]);
 
   const login = async (email: string, password: string) => {
     const { user } = await authService.login(email, password);

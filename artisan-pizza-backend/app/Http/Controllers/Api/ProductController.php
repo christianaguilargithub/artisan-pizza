@@ -3,28 +3,27 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
+use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(): AnonymousResourceCollection
     {
-        return response()->json(
+        return ProductResource::collection(
             Product::with('category', 'inventoryItems')->paginate(15)
         );
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreProductRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'category_id' => 'required|exists:categories,id',
-            'name'        => 'required|string|max:255',
-            'price'       => 'required|numeric|min:0',
-            'image'       => 'nullable|image|max:10240',
-        ]);
+        $data = $request->validated();
 
         if ($request->hasFile('image')) {
             $data['image_path'] = $request->file('image')->store('products', 'public');
@@ -35,22 +34,19 @@ class ProductController extends Controller
 
         $product = Product::create($data);
 
-        return response()->json($product->load('category'), 201);
+        return (new ProductResource($product->load('category')))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    public function show(Product $product): JsonResponse
+    public function show(Product $product): ProductResource
     {
-        return response()->json($product->load('category', 'inventoryItems'));
+        return new ProductResource($product->load('category', 'inventoryItems'));
     }
 
-    public function update(Request $request, Product $product): JsonResponse
+    public function update(UpdateProductRequest $request, Product $product): ProductResource
     {
-        $data = $request->validate([
-            'category_id' => 'sometimes|exists:categories,id',
-            'name'        => 'sometimes|string|max:255',
-            'price'       => 'sometimes|numeric|min:0',
-            'image'       => 'nullable|image|max:2048',
-        ]);
+        $data = $request->validated();
 
         if ($request->hasFile('image')) {
             if ($product->image_path) {
@@ -62,7 +58,7 @@ class ProductController extends Controller
         unset($data['image']);
         $product->update($data);
 
-        return response()->json($product->load('category'));
+        return new ProductResource($product->load('category'));
     }
 
     public function destroy(Product $product): JsonResponse
@@ -76,7 +72,7 @@ class ProductController extends Controller
         return response()->json(['message' => 'Product deleted.']);
     }
 
-    public function attachInventory(Request $request, Product $product): JsonResponse
+    public function attachInventory(Request $request, Product $product): ProductResource
     {
         $data = $request->validate([
             'inventory_item_id' => 'required|exists:inventory_items,id',
@@ -88,7 +84,7 @@ class ProductController extends Controller
             'author'   => $request->user()->id,
         ]);
 
-        return response()->json($product->load('inventoryItems'));
+        return new ProductResource($product->load('inventoryItems'));
     }
 
     public function detachInventory(Product $product, int $inventoryItemId): JsonResponse

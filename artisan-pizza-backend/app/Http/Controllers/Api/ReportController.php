@@ -26,9 +26,10 @@ class ReportController extends Controller
         $totalOrders   = $completed->count();
         $avgOrderValue = $totalOrders > 0 ? $totalSales / $totalOrders : 0;
 
-        // Sales by payment method
+        // Sales by payment method — exclude voided payments
         $byMethod = Payment::whereDate('created_at', $date)
             ->where('status', 'paid')
+            ->whereNull('voided_at')
             ->get()
             ->groupBy('payment_method')
             ->map(fn($g) => [
