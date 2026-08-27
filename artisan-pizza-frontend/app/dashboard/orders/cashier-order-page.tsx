@@ -139,8 +139,9 @@ export default function CashierOrderPage() {
         discount_code: appliedDiscount ? discountCode : undefined,
         notes: notes || undefined,
       });
-      // Capture total BEFORE clearing cart
-      setPendingOrderTotal(Number(order.total_amount));
+      // Capture total BEFORE clearing cart; keep numeric input attributes valid.
+      const orderTotal = Number(order.total_amount);
+      setPendingOrderTotal(Number.isFinite(orderTotal) ? orderTotal : cartTotal);
       setPendingOrderId(order.id);
       clearCart();
       setShowPayment(true);
@@ -160,8 +161,13 @@ export default function CashierOrderPage() {
         amount_tendered: parseFloat(amountTendered) || pendingOrderTotal,
         qr_reference: qrReference || undefined,
       });
-      const receiptData = await paymentService.getReceipt(payment.id);
-      setReceipt(receiptData);
+      try {
+        const receiptData = await paymentService.getReceipt(payment.id);
+        setReceipt(receiptData);
+      } catch {
+        // Payment succeeded even when receipt generation fails.
+        setReceipt(null);
+      }
       setShowPayment(false);
       setPendingOrderId(null);
       setAmountTendered('');

@@ -13,13 +13,20 @@ export const paymentService = {
   },
 
   async create(payload: CreatePaymentPayload): Promise<Payment> {
-    const { data } = await api.post<Payment>('/payments', payload);
-    return data;
+    const { data } = await api.post<Payment | { data: Payment }>('/payments', payload);
+    const payment = 'data' in data ? data.data : data;
+    if (!Number.isFinite(Number(payment.id))) {
+      throw new Error('Payment API response did not include a valid payment ID.');
+    }
+    return payment;
   },
 
   async getReceipt(id: number): Promise<ReceiptData> {
-    const { data } = await api.get<ReceiptData>(`/payments/${id}/receipt`);
-    return data;
+    if (!Number.isFinite(Number(id))) {
+      throw new Error('Cannot load receipt without a valid payment ID.');
+    }
+    const { data } = await api.get<ReceiptData | { data: ReceiptData }>(`/payments/${id}/receipt`);
+    return 'data' in data ? data.data : data;
   },
 
   async update(
