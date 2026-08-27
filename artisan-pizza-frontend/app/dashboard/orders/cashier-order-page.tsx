@@ -69,8 +69,15 @@ export default function CashierOrderPage() {
   // Filter products by category + search
   useEffect(() => {
     let filtered = allProducts;
-    if (activeCat !== null) filtered = filtered.filter((p) => p.category_id === activeCat);
-    if (search) filtered = filtered.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+    if (activeCat !== null) {
+      filtered = filtered.filter((p) =>
+        Number(p.category_id ?? p.category?.id) === Number(activeCat)
+      );
+    }
+    if (search) {
+      const query = search.trim().toLowerCase();
+      filtered = filtered.filter((p) => p.name.toLowerCase().includes(query));
+    }
     setProducts(filtered);
   }, [activeCat, search, allProducts]);
 
@@ -238,7 +245,7 @@ export default function CashierOrderPage() {
         {/* Product grid */}
         <div className="flex-1 overflow-y-auto p-5">
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
-            {products.map((product) => (
+            {products.map((product, index) => (
               <button
                 key={product.id}
                 onClick={() => addToCart(product.id)}
@@ -246,7 +253,7 @@ export default function CashierOrderPage() {
               >
                 <div className="aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
                   {product.image_url ? (
-                    <Image src={product.image_url} alt={product.name} width={120} height={120} className="w-full h-full object-cover" />
+                    <Image src={product.image_url} alt={product.name} width={120} height={120} priority={index === 0} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-3xl">🍕</span>
                   )}

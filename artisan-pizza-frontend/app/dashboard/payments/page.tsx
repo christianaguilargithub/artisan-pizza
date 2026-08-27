@@ -29,8 +29,8 @@ export default function PaymentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     const [payments, queue] = await Promise.all([
       paymentService.getAll(page),
       orderService.getQueue(),
@@ -40,7 +40,20 @@ export default function PaymentsPage() {
     setLoading(false);
   }, [page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+
+    const refresh = () => {
+      if (document.visibilityState === 'visible') load(false);
+    };
+    const interval = window.setInterval(refresh, 5000);
+    document.addEventListener('visibilitychange', refresh);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

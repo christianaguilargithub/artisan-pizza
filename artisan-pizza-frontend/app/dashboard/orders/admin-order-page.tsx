@@ -23,8 +23,8 @@ export default function AdminOrderPage() {
   const [orderSource, setOrderSource] = useState<OrderSource>('dine-in');
   const [items, setItems] = useState([{ product_id: 0, quantity: 1 }]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     const [orders, prods] = await Promise.all([
       orderService.getAll(page),
       productService.getAll(1).then((r) => r.data),
@@ -34,7 +34,20 @@ export default function AdminOrderPage() {
     setLoading(false);
   }, [page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+
+    const refresh = () => {
+      if (document.visibilityState === 'visible') load(false);
+    };
+    const interval = window.setInterval(refresh, 5000);
+    document.addEventListener('visibilitychange', refresh);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   const openModal = () => { setOrderSource('dine-in'); setItems([{ product_id: 0, quantity: 1 }]); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setItems([{ product_id: 0, quantity: 1 }]); };
