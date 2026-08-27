@@ -3,8 +3,8 @@ import type { Role } from '@/types';
 
 export const roleService = {
   async getAll(): Promise<Role[]> {
-    const { data } = await api.get<Role[]>('/roles');
-    return data;
+    const { data } = await api.get<Role[] | { data: Role[] }>('/roles');
+    return Array.isArray(data) ? data : data.data;
   },
 
   async getById(id: number): Promise<Role> {

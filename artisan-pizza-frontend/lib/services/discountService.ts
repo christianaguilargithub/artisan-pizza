@@ -3,8 +3,8 @@ import type { Discount } from '@/types';
 
 export const discountService = {
   async getAll(): Promise<Discount[]> {
-    const { data } = await api.get<Discount[]>('/discounts');
-    return data;
+    const { data } = await api.get<Discount[] | { data: Discount[] }>('/discounts');
+    return Array.isArray(data) ? data : data.data;
   },
 
   async create(payload: {

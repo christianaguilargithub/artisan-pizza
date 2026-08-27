@@ -13,13 +13,13 @@ export const orderService = {
   },
 
   async getQueue(): Promise<Order[]> {
-    const { data } = await api.get<Order[]>('/orders/queue');
-    return data;
+    const { data } = await api.get<Order[] | { data: Order[] }>('/orders/queue');
+    return Array.isArray(data) ? data : data.data;
   },
 
   async create(payload: CreateOrderPayload): Promise<Order> {
-    const { data } = await api.post<Order>('/orders', payload);
-    return data;
+    const { data } = await api.post<Order | { data: Order }>('/orders', payload);
+    return 'data' in data ? data.data : data;
   },
 
   async updateStatus(id: number, status: OrderStatus): Promise<Order> {

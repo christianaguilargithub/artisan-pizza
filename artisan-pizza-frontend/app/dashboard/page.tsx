@@ -14,9 +14,13 @@ export default function DashboardPage() {
   const [loadingReport, setLoadingReport] = useState(true);
 
   useEffect(() => {
-    reportService.getDaily().then(setReport).finally(() => setLoadingReport(false));
+    if (user?.role?.name !== 'cashier') {
+      reportService.getDaily().then(setReport).catch(() => setReport(null)).finally(() => setLoadingReport(false));
+    } else {
+      setLoadingReport(false);
+    }
     shiftService.getCurrent().then(setShift).catch(() => setShift(null));
-  }, []);
+  }, [user]);
 
   const statCards = [
     {
